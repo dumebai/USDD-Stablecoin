@@ -116,13 +116,3 @@ USDDEngine engine = new USDDEngine(tokens, feeds, address(usddToken));
 - [Foundry](https://book.getfoundry.sh/)
 
 ---
-
-## 🧠 Author
-
-🐺 [dumebai](https://github.com/dumebai)
-
----
-
-## 📄 License
-
-MIT
