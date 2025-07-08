@@ -2,7 +2,7 @@
 
 pragma solidity ^0.8.18;
 
-import {Test} from "forge-std/Test.sol";
+import {Test, console} from "forge-std/Test.sol";
 import {DeployUSDD} from "../../script/DeployUSDD.s.sol";
 import {USDDToken} from "../../src/USDDToken.sol";
 import {USDDEngine} from "../../src/USDDEngine.sol";
@@ -16,6 +16,7 @@ contract USDDEngineTest is Test {
     USDDEngine usddEngine;
     HelperConfig config;
     address ethUsdPriceFeed;
+    address btcUsdPriceFeed;
     address weth;
 
     address public USER = makeAddr("user");
@@ -25,9 +26,25 @@ contract USDDEngineTest is Test {
     function setUp() public {
         deployer = new DeployUSDD();
         (usddToken, usddEngine, config) = deployer.run();
-        (ethUsdPriceFeed,, weth,,) = config.activeNetworkConfig();
+        (ethUsdPriceFeed, btcUsdPriceFeed, weth,,) = config.activeNetworkConfig();
 
         ERC20Mock(weth).mint(USER, STARTING_ERC20_BALANCE);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                           CONSTRUCTOR TESTS
+    //////////////////////////////////////////////////////////////*/
+
+    address[] public tokenAddresses;
+    address[] public priceFeedAddresses;
+
+    function testRevertsIfTokenLengthDoesntMatchPriceFeeds() public {
+        tokenAddresses.push(weth);
+        priceFeedAddresses.push(ethUsdPriceFeed);
+        priceFeedAddresses.push(btcUsdPriceFeed);
+
+        vm.expectRevert(USDDEngineErrors.TokenAddressesAndPriceFeedAddressesMustBeSameLength.selector);
+        new USDDEngine(tokenAddresses, priceFeedAddresses, address(usddToken));
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -42,6 +59,13 @@ contract USDDEngineTest is Test {
         assertEq(expectedUsd, actualUsd);
     }
 
+    function testGetTokenAmountFromUsd() public {
+        uint256 usdAmount = 100 ether;
+        uint256 expectedWEth = 0.05 ether;
+        uint256 actualWEth = usddEngine.getTokenAmountFromUsd(weth, usdAmount);
+        assertEq(expectedWEth, actualWEth);
+    }
+
     /*//////////////////////////////////////////////////////////////
                         DEPOSIT COLLATERAL TESTS
     //////////////////////////////////////////////////////////////*/
@@ -53,4 +77,34 @@ contract USDDEngineTest is Test {
         usddEngine.depositCollateral(weth, 0);
         vm.stopPrank();
     }
+
+    function testRevertsWithUnnaprovedCollateral() public {
+        ERC20Mock badToken = new ERC20Mock("BAD Token", "BAD", USER, AMOUNT_COLLATERAL);
+        vm.startPrank(USER);
+        vm.expectRevert(USDDEngineErrors.TokenNotAllowed.selector);
+        usddEngine.depositCollateral(address(badToken), AMOUNT_COLLATERAL);
+        vm.stopPrank();
+    }
+
+    modifier depositedCollateral() {
+        vm.startPrank(USER);
+        ERC20Mock(weth).approve(address(usddEngine), AMOUNT_COLLATERAL);
+        usddEngine.depositCollateral(weth, AMOUNT_COLLATERAL);
+        vm.stopPrank();
+        _;
+    }
+
+    function testCanDepositCollateralAndGetAccountInfo() public depositedCollateral {
+        (uint256 totalUsddMinted, uint256 collateralValueInUsd) = usddEngine.getAccountInformation(USER);
+        console.log("TOTAL USDD MINTED: ", totalUsddMinted);
+        console.log("TOTAL COLLATERAL VALUE IN USD: ", totalUsddMinted);
+        uint256 expectedTotalUsddMinted = 0;
+        uint256 expectedCollateralValueInUsd = usddEngine.getTokenAmountFromUsd(weth, collateralValueInUsd);
+        console.log("EXPECTED USDD MINTED: ", expectedTotalUsddMinted);
+        console.log("EXPECTED COLLATERAL VALUE IN USD: ", expectedCollateralValueInUsd);
+        assertEq(totalUsddMinted, expectedTotalUsddMinted);
+        assertEq(AMOUNT_COLLATERAL, expectedCollateralValueInUsd);
+    }
+
+    // TODO: MORE TESTS
 }

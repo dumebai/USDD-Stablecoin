@@ -355,4 +355,16 @@ contract USDDEngine is ReentrancyGuard {
         // $2000 ETH. $1000 worth = 0.5 ETH
         return (usdAmountInWei * PRECISION) / (uint256(price) * ADDITIONAL_FEED_PRECISION);
     }
+
+    function getAccountInformation(address user)
+        external
+        view
+        returns (uint256 totalUsddMinted, uint256 collateralValueInUsd)
+    {
+        (totalUsddMinted, collateralValueInUsd) = _getAccountInformation(user);
+    }
+
+    function getCollateralTokens() external view returns (address[] memory) {
+        return s_collateralTokens;
+    }
 }
