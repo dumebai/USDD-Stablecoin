@@ -48,6 +48,15 @@ contract InvariantsTest is StdInvariant, Test {
         uint256 wEthValue = usddEngine.getUsdValue(wEth, totalWEthDeposited);
         uint256 wBtcValue = usddEngine.getUsdValue(wBtc, totalWBtcDeposited);
 
+        console.log("wEth value: ", wEthValue);
+        console.log("wBtc value: ", wBtcValue);
+        console.log("Total Supply value: ", totalSupply);
+        console.log("Times mint called: ", handler.timesMintIsCalled());
+
         assert(wEthValue + wBtcValue >= totalSupply);
+    }
+
+    function invariant_gettersShouldNotRevert() public {
+        // All getters
     }
 }

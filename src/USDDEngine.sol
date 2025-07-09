@@ -8,6 +8,7 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 import "./USDDEngineErrors.sol" as USDDEngineErrors;
+import {OracleLib} from "./libraries/OracleLib.sol";
 
 /*
  * @title USDD Token
@@ -37,8 +38,13 @@ import "./USDDEngineErrors.sol" as USDDEngineErrors;
 // @dev: ERC20Burnable has _burn function
 contract USDDEngine is ReentrancyGuard {
     /*//////////////////////////////////////////////////////////////
+                                 TYPES
+    //////////////////////////////////////////////////////////////*/
+    using OracleLib for AggregatorV3Interface;
+    /*//////////////////////////////////////////////////////////////
                             STATE VARIABLES
     //////////////////////////////////////////////////////////////*/
+
     uint256 private constant ADDITIONAL_FEED_PRECISION = 1e10;
     uint256 private constant PRECISION = 1e18;
     uint256 private constant LIQUIDATION_TRESHOLD = 50; // 200% overcollateralized
@@ -332,7 +338,7 @@ contract USDDEngine is ReentrancyGuard {
 
     function getPriceFeed(address token) public view isAllowedToken(token) returns (int256 price) {
         AggregatorV3Interface priceFeed = AggregatorV3Interface(s_priceFeeds[token]);
-        (, price,,,) = priceFeed.latestRoundData();
+        (, price,,,) = priceFeed.staleCheckLatestRoundData();
         if (price < 0) {
             revert USDDEngineErrors.NegativePriceFeed();
         }
@@ -366,5 +372,13 @@ contract USDDEngine is ReentrancyGuard {
 
     function getCollateralTokens() external view returns (address[] memory) {
         return s_collateralTokens;
+    }
+
+    function getCollateralBalanceOfUser(address user, address token) external view returns (uint256) {
+        return s_collateralDeposited[user][token];
+    }
+
+    function getCollateralTokenPriceFeed(address token) external view returns (address) {
+        return s_priceFeeds[token];
     }
 }
